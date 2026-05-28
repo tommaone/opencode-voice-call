@@ -1,4 +1,5 @@
 import { CallLoop } from "./engine/call-loop"
+import { forceKill, cleanup, cleanAllTempFiles } from "./engine/recorder"
 
 let callLoop: CallLoop | null = null
 let toastFn: (msg: string, variant?: string) => void = () => {}
@@ -7,14 +8,21 @@ let pendingPrompt: any = null
 let pollAbort: AbortController | null = null
 let callActive = false
 
-async function startPromptWatcher(client: any) {
+async function startPromptWatcher(client: any, sessionId: string) {
   while (callActive) {
     try {
       pollAbort = new AbortController()
-      const result = await client.tui.control.next({}, { signal: pollAbort.signal })
+      const [controlResult, permsResult] = await Promise.all([
+        client.tui.control.next({}, { signal: pollAbort.signal }).catch(() => null),
+        client.permission.list({}, { signal: pollAbort.signal }).catch(() => null),
+      ])
       if (!callActive) break
-      pendingPrompt = result.data
-      if (pendingPrompt) {
+      const perm = permsResult?.data?.find((p: any) => p.sessionID === sessionId)
+      if (perm) {
+        pendingPrompt = { type: "permission", permissionId: perm.id, sessionID: perm.sessionID }
+        toastFn("Permission request waiting — say approve, deny, or approve all", "info")
+      } else if (controlResult?.data) {
+        pendingPrompt = { type: "prompt", ...controlResult.data }
         toastFn("Interactive prompt waiting — speak your response", "info")
       }
     } catch {
@@ -61,11 +69,6 @@ function permissionMode(text: string): "once" | "always" | "reject" | null {
   return null
 }
 
-function parsePermissionPath(path: string): { sessionId?: string; permissionId?: string } {
-  const m = path.match(/\/session\/([^/]+)\/permissions\/([^/]+)/)
-  return m ? { sessionId: m[1], permissionId: m[2] } : {}
-}
-
 async function submitViaSdk(client: any, text: string): Promise<void> {
   const sessionId = await getSessionId(client)
   if (!sessionId) {
@@ -77,12 +80,11 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     if (prompt) {
       pendingPrompt = null
       const answer = normalizeResponse(text)
-      const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
-      if (permSid && permissionId) {
+      if (prompt.type === "permission") {
         const mode = permissionMode(text)
         if (mode) {
           await client.permission.reply({
-            requestID: permissionId,
+            requestID: prompt.permissionId,
             reply: mode,
           })
           toastFn(mode === "always" ? "Auto-approve set" : mode === "once" ? "Approved" : "Rejected", "success")
@@ -106,6 +108,12 @@ export default {
   id: "opencode-voice-call",
 
   tui: async (api: any, _options?: any) => {
+    // Clean up orphaned sox processes and temp files from a previous session
+    // that was interrupted by an opencode restart/crash.
+    forceKill()
+    cleanup()
+    cleanAllTempFiles()
+
     clientApi = api.client
 
     const toast = (message: string, variant: string = "info") => {
@@ -136,7 +144,10 @@ export default {
           }
 
           callActive = true
-          startPromptWatcher(clientApi)
+          getSessionId(clientApi).then(id => {
+            if (id) startPromptWatcher(clientApi, id)
+            else toast("No active session", "warning")
+          })
 
           callLoop = new CallLoop({
             onStateChange: updateStatus,

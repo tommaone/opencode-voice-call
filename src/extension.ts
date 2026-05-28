@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { execSync } from "child_process"
 import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk/client"
 import { CallLoop, type CallState } from "./engine/call-loop"
+import { forceKill, cleanup, cleanAllTempFiles } from "./engine/recorder"
 
 let statusBarItem: vscode.StatusBarItem
 let callLoop: CallLoop | null = null
@@ -12,6 +13,12 @@ let pendingPrompt: any = null
 let pollAbort: AbortController | null = null
 
 export function activate(context: vscode.ExtensionContext) {
+  // Clean up orphaned sox/temp files from a previous session that was
+  // interrupted by an opencode or VS Code restart/crash.
+  forceKill()
+  cleanup()
+  cleanAllTempFiles()
+
   const port = discoverOpencodePort()
   if (port) {
     client = createOpencodeClient({ baseUrl: `http://localhost:${port}` })

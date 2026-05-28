@@ -1,5 +1,5 @@
 import { spawn, execSync, type ChildProcess } from "child_process"
-import { unlinkSync } from "fs"
+import { unlinkSync, readdirSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 
@@ -100,7 +100,8 @@ export function forceKill(): void {
     soxProc = null
   }
   try {
-    execSync("pkill -9 -f 'sox.*opencode-voice' 2>/dev/null", { stdio: "ignore" })
+    // Kill orphaned processes from previous sessions (rec is sox, timeout wraps it)
+    execSync("pkill -9 -f 'opencode-voice' 2>/dev/null", { stdio: "ignore" })
   } catch {}
 }
 
@@ -109,4 +110,17 @@ export function cleanup(): void {
     try { unlinkSync(currentFile) } catch {}
     currentFile = null
   }
+}
+
+export function cleanAllTempFiles(): void {
+  // Remove leftover temp WAVs from previous sessions that didn't clean up
+  try {
+    const tmpDir = tmpdir()
+    const files = readdirSync(tmpDir)
+    for (const f of files) {
+      if (f.startsWith("opencode-voice-") && f.endsWith(".wav")) {
+        try { unlinkSync(join(tmpDir, f)) } catch {}
+      }
+    }
+  } catch {} // tmpdir might not be readable? improbable but safe
 }
