@@ -50,6 +50,11 @@ function normalizeResponse(text: string): string {
   return text
 }
 
+function parsePermissionPath(path: string): { sessionId?: string; permissionId?: string } {
+  const m = path.match(/\/session\/([^/]+)\/permissions\/([^/]+)/)
+  return m ? { sessionId: m[1], permissionId: m[2] } : {}
+}
+
 async function submitViaSdk(client: any, text: string): Promise<void> {
   const sessionId = await getSessionId(client)
   if (!sessionId) {
@@ -60,8 +65,19 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     const prompt = pendingPrompt
     if (prompt) {
       pendingPrompt = null
-      toastFn("Responding to prompt", "info")
-      await client.tui.control.response({ body: normalizeResponse(text) })
+      const answer = normalizeResponse(text)
+      const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
+      if (permSid && permissionId) {
+        const mode = /^approv\S*\s+(all|always)/i.test(text) ? "always" : "once"
+        await client.session.postSessionIdPermissionsPermissionId({
+          path: { id: permSid, permissionID: permissionId },
+          body: { response: mode },
+        })
+        toastFn(mode === "always" ? "Auto-approve set for session" : "Approved", "success")
+      } else {
+        toastFn("Responding to prompt", "info")
+        await client.tui.control.response({ body: answer })
+      }
       return
     }
     await client.session.prompt({

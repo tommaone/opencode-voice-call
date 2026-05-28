@@ -189,10 +189,11 @@ async function startCall() {
         clearPromptPreview()
         const answer = normalizeResponse(text)
         const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
-        if (permSid && permissionId && /^approv\S*\s+(all|always)/i.test(text)) {
-          (client!.session as any).postSessionIdPermissionsPermissionId({
+        if (permSid && permissionId) {
+          const response = /^approv\S*\s+(all|always)/i.test(text) ? "always" : "once"
+          ;(client!.session as any).postSessionIdPermissionsPermissionId({
             path: { id: permSid, permissionID: permissionId },
-            body: { response: "always" },
+            body: { response },
           }).catch(() => {})
         } else {
           client!.tui.control.response({ body: answer }).catch(() => {})
