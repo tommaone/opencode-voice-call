@@ -74,7 +74,7 @@ npm run package      # create .vsix for local install
 - Shows toast notifications for status changes
 - On call end, cleans up sox process
 
-## Voice-aware question protocol (v2)
+## Voice-aware question protocol
 
 When the voice call is active and you need to ask the user a question:
 

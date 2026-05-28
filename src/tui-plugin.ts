@@ -47,17 +47,17 @@ async function getSessionId(client: any): Promise<string | null> {
 
 function normalizeResponse(text: string): string {
   const t = text.trim()
-  if (/^approv/i.test(t)) return "allow"
-  if (/^(yes|ok|okay|fine|sure|yep|yeah)$/i.test(t)) return "yes"
-  if (/^(no|nope|deny|reject|cancel|stop|nah)$/i.test(t)) return "no"
+  if (/\bapprov/i.test(t)) return "allow"
+  if (/\b(yes|ok|okay|fine|sure|yep|yeah)\b/i.test(t)) return "yes"
+  if (/\b(no|nope|deny|reject|cancel|stop|nah)\b/i.test(t)) return "no"
   return text
 }
 
 function permissionMode(text: string): "once" | "always" | "reject" | null {
   const t = text.trim()
-  if (/^approv\S*\s+(all|always)$/i.test(t)) return "always"
-  if (/^(approv|yes|ok|okay|fine|sure|yep|yeah|allow)$/i.test(t)) return "once"
-  if (/^(no|nope|deny|reject|cancel|stop|nah)$/i.test(t)) return "reject"
+  if (/\bapprov\S*\s+(all|always)\b/i.test(t)) return "always"
+  if (/\b(approv|yes|ok|okay|fine|sure|yep|yeah|allow)\b/i.test(t)) return "once"
+  if (/\b(no|nope|deny|reject|cancel|stop|nah)\b/i.test(t)) return "reject"
   return null
 }
 
