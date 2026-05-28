@@ -205,7 +205,7 @@ async function startCall() {
             body: { response: "reject" },
           }).catch(() => {})
         }
-        client!.tui.executeCommand({ body: { command: "session.interrupt" } }).catch(() => {})
+        client!.session.abort({ path: { id: sessionId! } }).catch(() => {})
         return
       }
       if (prompt) {
