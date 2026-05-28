@@ -48,13 +48,7 @@ async function getSessionId(client: any): Promise<string | null> {
 function normalizeResponse(text: string): string {
   const lower = text.toLowerCase().trim()
   const map: Record<string, string> = {
-    hello: "allow",
-    hallo: "allow",
-    hola: "allow",
-    yellow: "allow",
-    hill: "allow",
-    hell: "allow",
-    all: "allow",
+    approve: "allow",
   }
   return map[lower] || text
 }

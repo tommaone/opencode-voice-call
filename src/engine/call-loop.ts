@@ -14,9 +14,11 @@ export interface CallCallbacks {
 export class CallLoop {
   private active = false
   private callbacks: CallCallbacks
+  private cooldownMs: number
 
-  constructor(callbacks: CallCallbacks) {
+  constructor(callbacks: CallCallbacks, cooldownMs: number = 800) {
     this.callbacks = callbacks
+    this.cooldownMs = cooldownMs
   }
 
   isActive(): boolean {
@@ -65,6 +67,9 @@ export class CallLoop {
         this.callbacks.onTranscript(result.text)
         await this.callbacks.submitText(result.text)
         this.callbacks.onUtteranceComplete()
+        if (this.cooldownMs > 0) {
+          await new Promise(r => setTimeout(r, this.cooldownMs))
+        }
       } catch (err) {
         if (!this.active) return
         const msg = err instanceof Error ? err.message : String(err)

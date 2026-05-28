@@ -81,15 +81,18 @@ function clearPromptPreview() {
 function normalizeResponse(text: string): string {
   const lower = text.toLowerCase().trim()
   const map: Record<string, string> = {
-    hello: "allow",
-    hallo: "allow",
-    hola: "allow",
-    yellow: "allow",
-    hill: "allow",
-    hell: "allow",
-    all: "allow",
+    approve: "allow",
   }
   return map[lower] || text
+}
+
+function parsePermissionPath(path: string): { sessionId?: string; permissionId?: string } {
+  const m = path.match(/\/session\/([^/]+)\/permissions\/([^/]+)/)
+  return m ? { sessionId: m[1], permissionId: m[2] } : {}
+}
+
+function isAlwaysPhrase(text: string): boolean {
+  return /^(allow|approve)\s+(all|always)$/i.test(text.trim())
 }
 
 async function startPromptWatcher() {
@@ -187,7 +190,16 @@ async function startCall() {
       if (prompt) {
         pendingPrompt = null
         clearPromptPreview()
-        await client!.tui.control.response({ body: normalizeResponse(text) }).catch(() => {})
+        const answer = normalizeResponse(text)
+        const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
+        if (permSid && permissionId && /^approve\s+(all|always)$/i.test(answer)) {
+          (client!.session as any).postSessionIdPermissionsPermissionId({
+            path: { id: permSid, permissionID: permissionId },
+            body: { response: "always" },
+          }).catch(() => {})
+        } else {
+          client!.tui.control.response({ body: answer }).catch(() => {})
+        }
         return
       }
       client!.session.prompt({
