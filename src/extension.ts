@@ -8,6 +8,8 @@ let callLoop: CallLoop | null = null
 let callActive = false
 let client: OpencodeClient | null = null
 let sessionId: string | null = null
+let pendingPrompt: any = null
+let pollAbort: AbortController | null = null
 
 export function activate(context: vscode.ExtensionContext) {
   const port = discoverOpencodePort()
@@ -59,13 +61,46 @@ function updateButton(state: CallState) {
   }
 }
 
-function setPromptPending(prompt: any) {
+function showPromptPreview(prompt: any) {
   const preview = prompt?.body
     ? String(prompt.body).slice(0, 50)
     : "Prompt waiting"
   statusBarItem.text = "$(question) Reply: " + preview
   statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground")
   statusBarItem.tooltip = "Interactive prompt — speak your response"
+}
+
+function clearPromptPreview() {
+  if (callLoop?.isActive()) {
+    statusBarItem.text = "$(mic) Listening..."
+    statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground")
+    statusBarItem.tooltip = "Listening — click to stop"
+  }
+}
+
+async function startPromptWatcher() {
+  while (callActive) {
+    try {
+      pollAbort = new AbortController()
+      const result = await client!.tui.control.next({ signal: pollAbort.signal })
+      if (!callActive) break
+      pendingPrompt = result.data
+      if (pendingPrompt) {
+        showPromptPreview(pendingPrompt)
+      }
+    } catch {
+      if (!callActive) break
+      await new Promise(r => setTimeout(r, 500))
+    }
+  }
+}
+
+function stopPromptWatcher() {
+  if (pollAbort) {
+    pollAbort.abort()
+    pollAbort = null
+  }
+  pendingPrompt = null
 }
 
 function discoverOpencodePort(): number | null {
@@ -124,6 +159,7 @@ async function startCall() {
   }
 
   callActive = true
+  startPromptWatcher()
 
   callLoop = new CallLoop({
     onStateChange: updateButton,
@@ -133,7 +169,7 @@ async function startCall() {
     },
     onUtteranceComplete: () => {},
     submitText: async (text) => {
-      const prompt = await pollForPrompt(200)
+      const prompt = pendingPrompt
       if (!prompt) {
         client!.session.prompt({
           path: { id: sessionId! },
@@ -141,32 +177,19 @@ async function startCall() {
         }).catch(() => {})
         return
       }
-      setPromptPending(prompt)
+      pendingPrompt = null
+      clearPromptPreview()
       await client!.tui.control.response({ body: text }).catch(() => {})
-      const followUp = await pollForPrompt(2000)
-      if (followUp) {
-        setPromptPending(followUp)
-      }
     },
   })
 
   callLoop.start()
 }
 
-async function pollForPrompt(timeoutMs: number): Promise<any> {
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    const result = await client!.tui.control.next({ signal: controller.signal })
-    clearTimeout(timer)
-    return result.data
-  } catch {
-    return null
-  }
-}
-
 function stopCall() {
   callActive = false
+  stopPromptWatcher()
+  clearPromptPreview()
   if (callLoop) {
     callLoop.stop()
     callLoop = null

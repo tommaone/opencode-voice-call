@@ -3,6 +3,34 @@ import { CallLoop } from "./engine/call-loop"
 let callLoop: CallLoop | null = null
 let toastFn: (msg: string, variant?: string) => void = () => {}
 let clientApi: any = null
+let pendingPrompt: any = null
+let pollAbort: AbortController | null = null
+let callActive = false
+
+async function startPromptWatcher(client: any) {
+  while (callActive) {
+    try {
+      pollAbort = new AbortController()
+      const result = await client.tui.control.next({ signal: pollAbort.signal })
+      if (!callActive) break
+      pendingPrompt = result.data
+      if (pendingPrompt) {
+        toastFn("Interactive prompt waiting — speak your response", "info")
+      }
+    } catch {
+      if (!callActive) break
+      await new Promise(r => setTimeout(r, 500))
+    }
+  }
+}
+
+function stopPromptWatcher() {
+  if (pollAbort) {
+    pollAbort.abort()
+    pollAbort = null
+  }
+  pendingPrompt = null
+}
 
 async function getSessionId(client: any): Promise<string | null> {
   try {
@@ -17,18 +45,6 @@ async function getSessionId(client: any): Promise<string | null> {
   }
 }
 
-async function pollForPrompt(client: any, timeoutMs: number): Promise<any> {
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    const result = await client.tui.control.next({ signal: controller.signal })
-    clearTimeout(timer)
-    return result.data
-  } catch {
-    return null
-  }
-}
-
 async function submitViaSdk(client: any, text: string): Promise<void> {
   const sessionId = await getSessionId(client)
   if (!sessionId) {
@@ -36,14 +52,11 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     return
   }
   try {
-    const prompt = await pollForPrompt(client, 200)
+    const prompt = pendingPrompt
     if (prompt) {
-      toastFn("Interactive prompt detected — responding", "info")
+      pendingPrompt = null
+      toastFn("Responding to prompt", "info")
       await client.tui.control.response({ body: text })
-      const followUp = await pollForPrompt(client, 2000)
-      if (followUp) {
-        toastFn("Another prompt waiting — keep speaking", "info")
-      }
       return
     }
     await client.session.prompt({
@@ -90,6 +103,9 @@ export default {
             return
           }
 
+          callActive = true
+          startPromptWatcher(clientApi)
+
           callLoop = new CallLoop({
             onStateChange: updateStatus,
             onTranscript: (text: string) => {
@@ -119,6 +135,8 @@ export default {
             toast("No active call", "warning")
             return
           }
+          callActive = false
+          stopPromptWatcher()
           callLoop.stop()
           callLoop = null
           toast("Call ended", "info")
