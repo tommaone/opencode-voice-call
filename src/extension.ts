@@ -78,6 +78,20 @@ function clearPromptPreview() {
   }
 }
 
+function normalizeResponse(text: string): string {
+  const lower = text.toLowerCase().trim()
+  const map: Record<string, string> = {
+    hello: "allow",
+    hallo: "allow",
+    hola: "allow",
+    yellow: "allow",
+    hill: "allow",
+    hell: "allow",
+    all: "allow",
+  }
+  return map[lower] || text
+}
+
 async function startPromptWatcher() {
   while (callActive) {
     try {
@@ -170,16 +184,16 @@ async function startCall() {
     onUtteranceComplete: () => {},
     submitText: async (text) => {
       const prompt = pendingPrompt
-      if (!prompt) {
-        client!.session.prompt({
-          path: { id: sessionId! },
-          body: { parts: [{ type: "text", text }] },
-        }).catch(() => {})
+      if (prompt) {
+        pendingPrompt = null
+        clearPromptPreview()
+        await client!.tui.control.response({ body: normalizeResponse(text) }).catch(() => {})
         return
       }
-      pendingPrompt = null
-      clearPromptPreview()
-      await client!.tui.control.response({ body: text }).catch(() => {})
+      client!.session.prompt({
+        path: { id: sessionId! },
+        body: { parts: [{ type: "text", text }] },
+      }).catch(() => {})
     },
   })
 

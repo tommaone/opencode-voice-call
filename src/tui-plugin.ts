@@ -45,6 +45,20 @@ async function getSessionId(client: any): Promise<string | null> {
   }
 }
 
+function normalizeResponse(text: string): string {
+  const lower = text.toLowerCase().trim()
+  const map: Record<string, string> = {
+    hello: "allow",
+    hallo: "allow",
+    hola: "allow",
+    yellow: "allow",
+    hill: "allow",
+    hell: "allow",
+    all: "allow",
+  }
+  return map[lower] || text
+}
+
 async function submitViaSdk(client: any, text: string): Promise<void> {
   const sessionId = await getSessionId(client)
   if (!sessionId) {
@@ -56,7 +70,7 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     if (prompt) {
       pendingPrompt = null
       toastFn("Responding to prompt", "info")
-      await client.tui.control.response({ body: text })
+      await client.tui.control.response({ body: normalizeResponse(text) })
       return
     }
     await client.session.prompt({
