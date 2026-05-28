@@ -125,16 +125,14 @@ async function startCall() {
     },
     onUtteranceComplete: () => {},
     submitText: async (text) => {
-      try {
-        await client!.session.prompt({
-          path: { id: sessionId! },
-          body: {
-            parts: [{ type: "text", text }],
-          },
-        })
-      } catch (err: any) {
+      client!.session.prompt({
+        path: { id: sessionId! },
+        body: {
+          parts: [{ type: "text", text }],
+        },
+      }).catch((err: any) => {
         vscode.window.showWarningMessage(`Submit failed: ${err.message}`)
-      }
+      })
     },
   })
 
