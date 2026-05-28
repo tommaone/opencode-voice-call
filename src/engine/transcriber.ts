@@ -3,8 +3,8 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
 
-const MODEL_NAME = "small.en"
-const LANG = "en"
+const MODEL_NAME = "small"
+const LANG = "auto"
 
 export interface TranscribeResult {
   text?: string
@@ -41,6 +41,12 @@ function findWhisperBin(): string {
   }
 }
 
+function detectLanguage(stderr: string): string | null {
+  // whisper.cpp prints: "auto-detected language: en (p = 0.987)"
+  const m = stderr.match(/auto-detected language:\s*(\w+)/i)
+  return m ? m[1].toLowerCase() : null
+}
+
 export async function transcribe(wavFile: string): Promise<TranscribeResult> {
   if (!existsSync(wavFile)) {
     return { error: "Recording file not found" }
@@ -60,7 +66,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       error: `Whisper model not found at ${modelPath}. Download it:\n` +
         `mkdir -p ${join(homedir(), ".local", "share", "whisper-cpp")}\n` +
         `curl -L -o "${modelPath}" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL_NAME}.bin\n` +
-        `Note: small.en is ~465MB, download may take a while`
+        `Note: small is ~465MB, download may take a while`
     }
   }
 
@@ -68,7 +74,8 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
     let stdout = ""
     let stderr = ""
 
-    const proc = spawn("whisper-cli", [
+    const bin = findWhisperBin()
+    const proc = spawn(bin, [
       "-m", modelPath,
       "-f", wavFile,
       "-l", LANG,
@@ -89,7 +96,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
     proc.on("error", (err) => {
       clearTimeout(timer)
       const msg = err.message.includes("spawn") && (err as any).code === "ENOENT"
-        ? "whisper-cli not found. Install it from https://github.com/ggerganov/whisper.cpp"
+        ? `${bin} not found. Install it from https://github.com/ggerganov/whisper.cpp`
         : `Transcription failed: ${err.message}`
       resolve({ error: msg })
     })
@@ -98,9 +105,17 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       clearTimeout(timer)
       if (code !== 0) {
         const errLine = stderr.trim().split("\n").pop()
-        resolve({ error: errLine || `whisper-cli exited (code ${code})` })
+        resolve({ error: errLine || `${bin} exited (code ${code})` })
         return
       }
+
+      // Skip non-English utterances (Slovak, etc.) so Discord chat doesn't leak gibberish
+      const lang = detectLanguage(stderr)
+      if (lang && lang !== "en") {
+        resolve({ text: "" })
+        return
+      }
+
       const text = stdout
         .replace(/\[.*?\]/g, "")
         .replace(/\(.*?\)/g, "")

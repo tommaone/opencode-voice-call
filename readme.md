@@ -15,7 +15,7 @@ cd opencode-voice-call
 ./setup.sh
 ```
 
-The script installs everything: Node.js, opencode, sox, whisper.cpp (built from source), the base.en model (~140MB), the VS Code extension, and the TUI plugin config.
+The script installs everything: Node.js, opencode, sox, whisper.cpp (built from source), the small multilingual model (~465MB), the VS Code extension, and the TUI plugin config.
 
 ## Manual setup
 
@@ -33,8 +33,8 @@ sudo cp whisper-cli /usr/local/bin/
 
 # Model
 mkdir -p ~/.local/share/whisper-cpp
-curl -L -o ~/.local/share/whisper-cpp/ggml-base.en.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+curl -L -o ~/.local/share/whisper-cpp/ggml-small.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
 
 # Node deps
 npm install
@@ -84,7 +84,7 @@ Microphone → sox (VAD) → WAV → whisper.cpp → text → opencode SDK → s
 ```
 
 - **recorder.ts** — sox with silence detection (1.5s threshold)
-- **transcriber.ts** — whisper.cpp with base.en model
+- **transcriber.ts** — whisper.cpp with small multilingual model (auto-detects language, skips non-English)
 - **call-loop.ts** — orchestration loop (record → transcribe → submit)
 - **extension.ts** — VS Code status bar integration
 - **tui-plugin.ts** — opencode TUI slash commands

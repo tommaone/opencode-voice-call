@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="small.en"
+MODEL="small"
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL}.bin"
 MODEL_DIR="$HOME/.local/share/whisper-cpp"
 MODEL_PATH="${MODEL_DIR}/ggml-${MODEL}.bin"
@@ -49,7 +49,7 @@ if ! command -v whisper-cli &>/dev/null; then
   echo "  whisper-cli installed to /usr/local/bin/"
 fi
 
-echo "==> Downloading ${MODEL} model (~465MB)"
+echo "==> Downloading ${MODEL} model (~465MB, multilingual)"
 mkdir -p "$MODEL_DIR"
 if [ ! -f "$MODEL_PATH" ]; then
   curl -L -o "$MODEL_PATH" "$MODEL_URL"
