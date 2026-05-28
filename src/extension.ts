@@ -195,6 +195,19 @@ async function startCall() {
     onUtteranceComplete: () => {},
     submitText: async (text) => {
       const prompt = pendingPrompt
+      if (/\binterrupt\b/i.test(text)) {
+        pendingPrompt = null
+        clearPromptPreview()
+        const { sessionId: permSid, permissionId } = prompt ? parsePermissionPath(prompt.path) : {}
+        if (permSid && permissionId) {
+          ;(client!.session as any).postSessionIdPermissionsPermissionId({
+            path: { id: permSid, permissionID: permissionId },
+            body: { response: "reject" },
+          }).catch(() => {})
+        }
+        client!.tui.executeCommand({ body: { command: "session.interrupt" } }).catch(() => {})
+        return
+      }
       if (prompt) {
         pendingPrompt = null
         clearPromptPreview()
