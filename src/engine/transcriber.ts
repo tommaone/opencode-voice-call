@@ -3,7 +3,8 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
 
-const MODEL_NAME = "base.en"
+const MODEL_NAME = "base"
+const LANG = "sk"
 
 export interface TranscribeResult {
   text?: string
@@ -69,6 +70,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
     const proc = spawn("whisper-cli", [
       "-m", modelPath,
       "-f", wavFile,
+      "-l", LANG,
       "-np",
       "-nt",
     ], {
