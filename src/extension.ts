@@ -68,7 +68,6 @@ function discoverOpencodePort(): number | null {
       .trim()
       .split("\n")
       .filter(Boolean)
-
     for (const pid of pids) {
       try {
         const cmdline = execSync(
@@ -125,18 +124,31 @@ async function startCall() {
     },
     onUtteranceComplete: () => {},
     submitText: async (text) => {
-      client!.session.prompt({
-        path: { id: sessionId! },
-        body: {
-          parts: [{ type: "text", text }],
-        },
-      }).catch((err: any) => {
-        vscode.window.showWarningMessage(`Submit failed: ${err.message}`)
-      })
+      const isReply = await checkForPrompt()
+      if (isReply) {
+        client!.tui.control.response({ body: text }).catch(() => {})
+      } else {
+        client!.session.prompt({
+          path: { id: sessionId! },
+          body: { parts: [{ type: "text", text }] },
+        }).catch(() => {})
+      }
     },
   })
 
   callLoop.start()
+}
+
+async function checkForPrompt(): Promise<boolean> {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 200)
+    const result = await client!.tui.control.next({ signal: controller.signal })
+    clearTimeout(timer)
+    return result.data !== undefined
+  } catch {
+    return false
+  }
 }
 
 function stopCall() {
