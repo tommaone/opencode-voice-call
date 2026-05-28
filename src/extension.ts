@@ -79,11 +79,8 @@ function clearPromptPreview() {
 }
 
 function normalizeResponse(text: string): string {
-  const lower = text.toLowerCase().trim()
-  const map: Record<string, string> = {
-    approve: "allow",
-  }
-  return map[lower] || text
+  if (/^approv/i.test(text.trim())) return "allow"
+  return text
 }
 
 function parsePermissionPath(path: string): { sessionId?: string; permissionId?: string } {
@@ -192,7 +189,7 @@ async function startCall() {
         clearPromptPreview()
         const answer = normalizeResponse(text)
         const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
-        if (permSid && permissionId && /^approve\s+(all|always)$/i.test(answer)) {
+        if (permSid && permissionId && /^approv\S*\s+(all|always)/i.test(text)) {
           (client!.session as any).postSessionIdPermissionsPermissionId({
             path: { id: permSid, permissionID: permissionId },
             body: { response: "always" },

@@ -74,6 +74,16 @@ npm run package      # create .vsix for local install
 - Shows toast notifications for status changes
 - On call end, cleans up sox process
 
+## Voice-aware question protocol
+
+When the voice call is active and you need to ask the user a question:
+
+1. Use the `question` tool normally — opencode renders the options in the TUI
+2. In your response, **tell the user exactly what to say** for each option (e.g. "Say 1 for ..." or "Say approve to continue")
+3. The user speaks their answer → it gets transcribed → submitted via `session.prompt()` → arrives in the conversation
+4. Read the answer from the next `session.prompt()` message in the conversation history
+5. Do NOT expect `tui.control.next/response` to work for `question` tool prompts — they use a different internal channel
+
 ## GitHub workflow
 
 - Branch from main for each feature

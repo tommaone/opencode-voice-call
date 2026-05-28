@@ -46,11 +46,8 @@ async function getSessionId(client: any): Promise<string | null> {
 }
 
 function normalizeResponse(text: string): string {
-  const lower = text.toLowerCase().trim()
-  const map: Record<string, string> = {
-    approve: "allow",
-  }
-  return map[lower] || text
+  if (/^approv/i.test(text.trim())) return "allow"
+  return text
 }
 
 async function submitViaSdk(client: any, text: string): Promise<void> {
