@@ -1,0 +1,61 @@
+{
+	"name": "opencode-voice-call",
+	"displayName": "opencode Voice Call",
+	"description": "Voice dictation — speak, transcribe locally, insert at cursor.",
+	"version": "0.1.0",
+	"publisher": "tommaone",
+	"private": true,
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/tommaone/opencode-voice-call"
+	},
+	"engines": {
+		"vscode": "^1.94.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "opencode-voice-call.toggle",
+				"title": "opencode Voice Call: Toggle call"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "opencode-voice-call.toggle",
+				"title": "Toggle voice call",
+				"key": "ctrl+shift+m",
+				"mac": "cmd+shift+m"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "node esbuild.js",
+		"watch": "node esbuild.js --watch",
+		"package": "npm run compile && vsce package",
+		"lint": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/node": "20.x",
+		"@types/vscode": "^1.94.0",
+		"@vscode/vsce": "^3.2.0",
+		"esbuild": "^0.25.3",
+		"typescript": "^5.8.3"
+	},
+	"dependencies": {
+		"@opencode-ai/sdk": "^1.15.9"
+	},
+	"__metadata": {
+		"installedTimestamp": 1779993616846,
+		"targetPlatform": "undefined",
+		"size": 62271
+	}
+}
