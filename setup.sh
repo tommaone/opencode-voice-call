@@ -7,6 +7,8 @@ MODEL_DIR="$HOME/.local/share/whisper-cpp"
 MODEL_PATH="${MODEL_DIR}/ggml-${MODEL}.bin"
 PLUGIN_DIR="$HOME/.config/opencode/plugins/voice-call"
 PLUGIN_SRC="$(dirname "$0")/dist/tui-plugin.js"
+EXT_DIR="$(dirname "$0")"
+EXT_ID="tommaone.opencode-voice-call"
 
 echo "==> Installing system dependencies"
 if command -v apt &>/dev/null; then
@@ -37,12 +39,29 @@ else
   echo "  Model already exists, skipping download"
 fi
 
+echo "==> Building extension"
+if [ ! -d "$EXT_DIR/node_modules" ]; then
+  npm install --prefix "$EXT_DIR"
+fi
+node "$EXT_DIR/esbuild.js"
+
+echo "==> Installing VS Code extension"
+for target in "$HOME/.vscode/extensions" "$HOME/.vscode-server/extensions"; do
+  if [ -d "$target" ] && [ ! -L "$target/$EXT_ID" ]; then
+    ln -s "$EXT_DIR" "$target/$EXT_ID"
+    echo "  Symlinked into $target/$EXT_ID"
+  fi
+done
+if command -v code &>/dev/null && code --list-extensions 2>/dev/null | grep -q "$EXT_ID"; then
+  echo "  Extension already enabled in VS Code"
+fi
+
 echo "==> Installing TUI plugin"
 mkdir -p "$PLUGIN_DIR"
 if [ -f "$PLUGIN_SRC" ]; then
   cp "$PLUGIN_SRC" "$PLUGIN_DIR/tui-plugin.js"
 else
-  echo "ERROR: dist/tui-plugin.js not found. Run 'npm run compile' first."
+  echo "ERROR: dist/tui-plugin.js not found after build"
   exit 1
 fi
 
@@ -61,4 +80,6 @@ else
 fi
 
 echo ""
-echo "Done. Start opencode TUI and use /call to begin voice dictation."
+echo "Done. Restart VS Code and opencode TUI."
+echo "  - VS Code: click the mic icon (bottom-left) or Ctrl+Shift+M"
+echo "  - TUI:     /call to start, /hang to stop"
