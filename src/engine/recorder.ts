@@ -7,7 +7,7 @@ let soxProc: ChildProcess | null = null
 let currentFile: string | null = null
 let stderrBuf = ""
 
-const SILENCE_DURATION = 3.0
+const SILENCE_DURATION = 2.0
 const MAX_DURATION = 300
 const SILENCE_THRESHOLD = "3%"
 
