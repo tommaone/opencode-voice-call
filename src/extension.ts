@@ -195,7 +195,7 @@ async function startCall() {
     onUtteranceComplete: () => {},
     submitText: async (text) => {
       const prompt = pendingPrompt
-      if (/^interrupt\.?$/i.test(text.trim())) {
+      if (/^stop\.?$/i.test(text.trim())) {
         pendingPrompt = null
         clearPromptPreview()
         const { sessionId: permSid, permissionId } = prompt ? parsePermissionPath(prompt.path) : {}
