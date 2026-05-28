@@ -3,8 +3,8 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
 
-const MODEL_NAME = "base"
-const LANG = "sk"
+const MODEL_NAME = "base.en"
+const LANG = "en"
 
 export interface TranscribeResult {
   text?: string
