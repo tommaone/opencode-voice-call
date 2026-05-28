@@ -1,33 +1,90 @@
-# opencode-voice-call
+# opencode Voice Call
 
-Voice dictation for VS Code. Speak, transcribe locally, insert at cursor.
+Voice dictation for opencode and VS Code. Speak, transcribe locally with whisper.cpp, auto-submit.
 
-- **Free**: All transcription is local via whisper-cpp — zero API costs
-- **Private**: Not yet published to marketplace
+- **Zero API cost** — 100% local transcription via whisper.cpp
+- **Works in TUI** — `/call` and `/hang` slash commands
+- **Works in VS Code** — status bar button + `Ctrl+Shift+M`
+- **Background** — recording runs while you keep working
 
-## Features
+## Quick start
 
-### VS Code (extension)
-- **Status bar button** `$(mic) Call` — bottom-left, click to start/stop
-- **Keyboard shortcut** `ctrl+shift+m` / `cmd+shift+m`
-- Transcribed text is inserted at the active cursor position
+```bash
+git clone https://github.com/tommaone/opencode-voice-call
+cd opencode-voice-call
+./setup.sh
+```
 
-### Terminal TUI (plugin)
-- **Slash command** `/call` — start continuous voice recording and auto-submit
-- **Slash command** `/hang` — end active voice call
-- **Requires** registering the plugin in `tui.jsonc` (see below)
+The script installs everything: Node.js, opencode, sox, whisper.cpp (built from source), the large-v3 model (~3GB), the VS Code extension, and the TUI plugin config.
 
-## TUI plugin setup
+## Manual setup
+
+### Prerequisites
+
+```bash
+# System
+sudo apt install sox curl     # Debian/Ubuntu
+sudo pacman -S sox curl        # Arch
+
+# whisper.cpp
+git clone https://github.com/ggerganov/whisper.cpp
+cd whisper.cpp && make -j whisper-cli
+sudo cp whisper-cli /usr/local/bin/
+
+# Model
+mkdir -p ~/.local/share/whisper-cpp
+curl -L -o ~/.local/share/whisper-cpp/ggml-large-v3.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
+
+# Node deps
+npm install
+```
+
+### Build
+
+```bash
+npm run compile
+```
+
+### Install VS Code extension
+
+```bash
+ln -s "$PWD" ~/.vscode/extensions/tommaone.opencode-voice-call
+```
+
+### Install TUI plugin
+
+```bash
+mkdir -p ~/.config/opencode/plugins/voice-call
+cp dist/tui-plugin.js ~/.config/opencode/plugins/voice-call/
+```
 
 Add to `~/.config/opencode/tui.jsonc`:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["./plugins/voice-call/tui-plugin.js"]
+  "plugin": ["~/.config/opencode/plugins/voice-call/tui-plugin.js"]
 }
 ```
 
-After registering, restart opencode TUI. Use `/call` to start and `/hang` to stop.
+## Usage
 
-See [PLAN.md](https://github.com/tommaone/opencode-voice-call/blob/HEAD/PLAN.md) for architecture and [AGENTS.md](https://github.com/tommaone/opencode-voice-call/blob/HEAD/AGENTS.md) for project conventions.
+| Action | VS Code | TUI |
+|--------|---------|-----|
+| Start | Click `$(mic) Call` or `Ctrl+Shift+M` | `/call` |
+| Stop | Click again or `Ctrl+Shift+M` | `/hang` |
+
+Speak after starting — silence detection (1.5s) triggers transcription automatically.
+
+## How it works
+
+```
+Microphone → sox (VAD) → WAV → whisper.cpp → text → opencode SDK → submission
+```
+
+- **recorder.ts** — sox with silence detection (1.5s threshold)
+- **transcriber.ts** — whisper.cpp with large-v3 model
+- **call-loop.ts** — orchestration loop (record → transcribe → submit)
+- **extension.ts** — VS Code status bar integration
+- **tui-plugin.ts** — opencode TUI slash commands
