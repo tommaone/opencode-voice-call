@@ -172,10 +172,14 @@ async function toggleCall() {
 }
 
 async function startCall() {
-  if (!client) {
-    vscode.window.showWarningMessage("No opencode server found")
+  // Re-discover the opencode port on every click — it may have started
+  // (or restarted) after the extension activated.
+  const port = discoverOpencodePort()
+  if (!port) {
+    vscode.window.showWarningMessage("No opencode server found. Start opencode first.")
     return
   }
+  client = createOpencodeClient({ baseUrl: `http://localhost:${port}` })
 
   sessionId = await getSessionId()
   if (!sessionId) {

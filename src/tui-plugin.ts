@@ -11,7 +11,7 @@ async function startPromptWatcher(client: any) {
   while (callActive) {
     try {
       pollAbort = new AbortController()
-      const result = await client.tui.control.next({ signal: pollAbort.signal })
+      const result = await client.tui.control.next({}, { signal: pollAbort.signal })
       if (!callActive) break
       pendingPrompt = result.data
       if (pendingPrompt) {
@@ -81,9 +81,9 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
       if (permSid && permissionId) {
         const mode = permissionMode(text)
         if (mode) {
-          await client.session.postSessionIdPermissionsPermissionId({
-            path: { id: permSid, permissionID: permissionId },
-            body: { response: mode },
+          await client.permission.reply({
+            requestID: permissionId,
+            reply: mode,
           })
           toastFn(mode === "always" ? "Auto-approve set" : mode === "once" ? "Approved" : "Rejected", "success")
         }
@@ -94,10 +94,8 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
       return
     }
     await client.session.prompt({
-      path: { id: sessionId },
-      body: {
-        parts: [{ type: "text", text }],
-      },
+      sessionID: sessionId,
+      parts: [{ type: "text", text }],
     })
   } catch (err: any) {
     toastFn(`Submit failed: ${err.message}`, "error")
