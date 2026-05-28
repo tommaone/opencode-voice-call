@@ -79,8 +79,19 @@ function clearPromptPreview() {
 }
 
 function normalizeResponse(text: string): string {
-  if (/^approv/i.test(text.trim())) return "allow"
+  const t = text.trim()
+  if (/^approv/i.test(t)) return "allow"
+  if (/^(yes|ok|okay|fine|sure|yep|yeah)$/i.test(t)) return "yes"
+  if (/^(no|nope|deny|reject|cancel|stop|nah)$/i.test(t)) return "no"
   return text
+}
+
+function permissionMode(text: string): "once" | "always" | "reject" | null {
+  const t = text.trim()
+  if (/^approv\S*\s+(all|always)$/i.test(t)) return "always"
+  if (/^(approv|yes|ok|okay|fine|sure|yep|yeah|allow)$/i.test(t)) return "once"
+  if (/^(no|nope|deny|reject|cancel|stop|nah)$/i.test(t)) return "reject"
+  return null
 }
 
 function parsePermissionPath(path: string): { sessionId?: string; permissionId?: string } {
@@ -190,11 +201,13 @@ async function startCall() {
         const answer = normalizeResponse(text)
         const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
         if (permSid && permissionId) {
-          const response = /^approv\S*\s+(all|always)/i.test(text) ? "always" : "once"
-          ;(client!.session as any).postSessionIdPermissionsPermissionId({
-            path: { id: permSid, permissionID: permissionId },
-            body: { response },
-          }).catch(() => {})
+          const mode = permissionMode(text)
+          if (mode) {
+            ;(client!.session as any).postSessionIdPermissionsPermissionId({
+              path: { id: permSid, permissionID: permissionId },
+              body: { response: mode },
+            }).catch(() => {})
+          }
         } else {
           client!.tui.control.response({ body: answer }).catch(() => {})
         }

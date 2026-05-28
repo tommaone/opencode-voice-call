@@ -46,8 +46,19 @@ async function getSessionId(client: any): Promise<string | null> {
 }
 
 function normalizeResponse(text: string): string {
-  if (/^approv/i.test(text.trim())) return "allow"
+  const t = text.trim()
+  if (/^approv/i.test(t)) return "allow"
+  if (/^(yes|ok|okay|fine|sure|yep|yeah)$/i.test(t)) return "yes"
+  if (/^(no|nope|deny|reject|cancel|stop|nah)$/i.test(t)) return "no"
   return text
+}
+
+function permissionMode(text: string): "once" | "always" | "reject" | null {
+  const t = text.trim()
+  if (/^approv\S*\s+(all|always)$/i.test(t)) return "always"
+  if (/^(approv|yes|ok|okay|fine|sure|yep|yeah|allow)$/i.test(t)) return "once"
+  if (/^(no|nope|deny|reject|cancel|stop|nah)$/i.test(t)) return "reject"
+  return null
 }
 
 function parsePermissionPath(path: string): { sessionId?: string; permissionId?: string } {
@@ -68,12 +79,14 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
       const answer = normalizeResponse(text)
       const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
       if (permSid && permissionId) {
-        const mode = /^approv\S*\s+(all|always)/i.test(text) ? "always" : "once"
-        await client.session.postSessionIdPermissionsPermissionId({
-          path: { id: permSid, permissionID: permissionId },
-          body: { response: mode },
-        })
-        toastFn(mode === "always" ? "Auto-approve set for session" : "Approved", "success")
+        const mode = permissionMode(text)
+        if (mode) {
+          await client.session.postSessionIdPermissionsPermissionId({
+            path: { id: permSid, permissionID: permissionId },
+            body: { response: mode },
+          })
+          toastFn(mode === "always" ? "Auto-approve set" : mode === "once" ? "Approved" : "Rejected", "success")
+        }
       } else {
         toastFn("Responding to prompt", "info")
         await client.tui.control.response({ body: answer })
