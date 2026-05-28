@@ -12,23 +12,41 @@ EXT_ID="tommaone.opencode-voice-call"
 
 echo "==> Installing system dependencies"
 if command -v apt &>/dev/null; then
-  sudo apt update && sudo apt install -y sox curl
+  sudo apt update && sudo apt install -y sox curl build-essential git
 elif command -v pacman &>/dev/null; then
-  sudo pacman -Sy --noconfirm sox curl
+  sudo pacman -Sy --noconfirm sox curl base-devel git
 elif command -v dnf &>/dev/null; then
-  sudo dnf install -y sox curl
+  sudo dnf install -y sox curl gcc gcc-c++ make git
 elif command -v brew &>/dev/null; then
   brew install sox curl
 else
-  echo "WARNING: unsupported package manager. Install sox + curl manually."
+  echo "WARNING: unsupported package manager. Install sox + curl + build tools manually."
 fi
+
+echo "==> Checking Node.js"
+if ! command -v node &>/dev/null; then
+  echo "Installing Node.js via nvm..."
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+  nvm install 22
+fi
+
+echo "==> Checking opencode"
+if ! command -v opencode &>/dev/null && [ ! -f "$HOME/.opencode/bin/opencode" ]; then
+  echo "Installing opencode..."
+  curl -fsSL https://opencode.ai/install.sh | sh
+fi
+export PATH="$HOME/.opencode/bin:$PATH"
 
 echo "==> Checking whisper-cli"
 if ! command -v whisper-cli &>/dev/null; then
-  echo "ERROR: whisper-cli not found. Install it from https://github.com/ggerganov/whisper.cpp"
-  echo "  Quick build: git clone https://github.com/ggerganov/whisper.cpp && cd whisper.cpp && make -j"
-  echo "  Then: sudo cp whisper-cli /usr/local/bin/"
-  exit 1
+  echo "Building whisper.cpp from source..."
+  git clone --depth 1 https://github.com/ggerganov/whisper.cpp /tmp/whisper-cpp
+  make -C /tmp/whisper-cpp -j "$(nproc)" whisper-cli
+  sudo cp /tmp/whisper-cpp/whisper-cli /usr/local/bin/
+  rm -rf /tmp/whisper-cpp
+  echo "  whisper-cli installed to /usr/local/bin/"
 fi
 
 echo "==> Downloading ${MODEL} model (~3GB)"
@@ -52,9 +70,6 @@ for target in "$HOME/.vscode/extensions" "$HOME/.vscode-server/extensions"; do
     echo "  Symlinked into $target/$EXT_ID"
   fi
 done
-if command -v code &>/dev/null && code --list-extensions 2>/dev/null | grep -q "$EXT_ID"; then
-  echo "  Extension already enabled in VS Code"
-fi
 
 echo "==> Installing TUI plugin"
 mkdir -p "$PLUGIN_DIR"
