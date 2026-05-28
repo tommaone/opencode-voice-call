@@ -9,6 +9,7 @@ let stderrBuf = ""
 
 const SILENCE_DURATION = 1.5
 const MAX_DURATION = 300
+const SILENCE_THRESHOLD = "3%"
 
 function getTempFile(): string {
   return join(tmpdir(), `opencode-voice-${Date.now()}.wav`)
@@ -22,8 +23,8 @@ function buildSoxArgs(file: string, silenceSec: number): string[] {
     "-b", "16",
     file,
     "silence",
-    "1", "0.1", "1%",
-    "1", `${silenceSec.toFixed(1)}`, "1%",
+    "1", "0.1", SILENCE_THRESHOLD,
+    "1", `${silenceSec.toFixed(1)}`, SILENCE_THRESHOLD,
   ]
 }
 

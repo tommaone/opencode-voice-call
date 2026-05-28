@@ -49,6 +49,9 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
   if (size <= 44) {
     return { error: "Recording is empty — no audio captured" }
   }
+  if (size < 8000) {
+    return { text: "" }
+  }
 
   const modelPath = getModelPath()
   if (!existsSync(modelPath)) {
