@@ -17,6 +17,18 @@ async function getSessionId(client: any): Promise<string | null> {
   }
 }
 
+async function pollForPrompt(client: any, timeoutMs: number): Promise<any> {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const result = await client.tui.control.next({ signal: controller.signal })
+    clearTimeout(timer)
+    return result.data
+  } catch {
+    return null
+  }
+}
+
 async function submitViaSdk(client: any, text: string): Promise<void> {
   const sessionId = await getSessionId(client)
   if (!sessionId) {
@@ -24,6 +36,16 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     return
   }
   try {
+    const prompt = await pollForPrompt(client, 200)
+    if (prompt) {
+      toastFn("Interactive prompt detected — responding", "info")
+      await client.tui.control.response({ body: text })
+      const followUp = await pollForPrompt(client, 2000)
+      if (followUp) {
+        toastFn("Another prompt waiting — keep speaking", "info")
+      }
+      return
+    }
     await client.session.prompt({
       path: { id: sessionId },
       body: {

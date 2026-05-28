@@ -59,6 +59,15 @@ function updateButton(state: CallState) {
   }
 }
 
+function setPromptPending(prompt: any) {
+  const preview = prompt?.body
+    ? String(prompt.body).slice(0, 50)
+    : "Prompt waiting"
+  statusBarItem.text = "$(question) Reply: " + preview
+  statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground")
+  statusBarItem.tooltip = "Interactive prompt — speak your response"
+}
+
 function discoverOpencodePort(): number | null {
   try {
     const pids = execSync("pgrep -f 'opencode.*--port' | head -5", {
@@ -124,14 +133,19 @@ async function startCall() {
     },
     onUtteranceComplete: () => {},
     submitText: async (text) => {
-      const isReply = await checkForPrompt()
-      if (isReply) {
-        client!.tui.control.response({ body: text }).catch(() => {})
-      } else {
+      const prompt = await pollForPrompt(200)
+      if (!prompt) {
         client!.session.prompt({
           path: { id: sessionId! },
           body: { parts: [{ type: "text", text }] },
         }).catch(() => {})
+        return
+      }
+      setPromptPending(prompt)
+      await client!.tui.control.response({ body: text }).catch(() => {})
+      const followUp = await pollForPrompt(2000)
+      if (followUp) {
+        setPromptPending(followUp)
       }
     },
   })
@@ -139,15 +153,15 @@ async function startCall() {
   callLoop.start()
 }
 
-async function checkForPrompt(): Promise<boolean> {
+async function pollForPrompt(timeoutMs: number): Promise<any> {
   try {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 200)
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     const result = await client!.tui.control.next({ signal: controller.signal })
     clearTimeout(timer)
-    return result.data !== undefined
+    return result.data
   } catch {
-    return false
+    return null
   }
 }
 
