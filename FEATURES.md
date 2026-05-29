@@ -28,7 +28,7 @@ Transcription runs entirely locally via whisper-cpp. No cloud calls, no API keys
 no per-transcription costs.
 
 **Files:** `src/engine/transcriber.ts`
-**Model:** `ggml-small.bin` (user chose precision over speed)
+**Model:** `ggml-small.en.bin` (English-only, faster & more accurate than multilingual)
 **Caching:** Model stays loaded in memory; not reloaded per utterance.
 
 ## 3. TUI plugin (`/call` and `/hang` commands)

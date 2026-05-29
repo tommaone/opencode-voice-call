@@ -34,7 +34,7 @@ opencode-voice-call/
 ## Shared engine (`src/engine/`)
 
 - **recorder.ts** — Spawns `sox` with silence detection. Stops after 1.5s of silence. Returns a WAV file path.
-- **transcriber.ts** — Calls `whisper-cli` with the `base.en` model on the WAV file. Returns transcribed text.
+- **transcriber.ts** — Calls `whisper-cli` with the `small.en` model on the WAV file. Returns transcribed text.
 - **call-loop.ts** — Orchestrates the loop: record → transcribe → submit. Runs until cancelled.
 
 ## Key constraints

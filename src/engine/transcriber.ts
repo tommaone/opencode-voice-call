@@ -3,8 +3,8 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
 
-const MODEL_NAME = "small"
-const LANG = "auto"
+const MODEL_NAME = "small.en"
+const LANG = "en"
 
 export interface TranscribeResult {
   text?: string
@@ -41,12 +41,6 @@ function findWhisperBin(): string {
   }
 }
 
-function detectLanguage(stderr: string): string | null {
-  // whisper.cpp prints: "auto-detected language: en (p = 0.987)"
-  const m = stderr.match(/auto-detected language:\s*(\w+)/i)
-  return m ? m[1].toLowerCase() : null
-}
-
 export async function transcribe(wavFile: string): Promise<TranscribeResult> {
   if (!existsSync(wavFile)) {
     return { error: "Recording file not found" }
@@ -66,7 +60,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       error: `Whisper model not found at ${modelPath}. Download it:\n` +
         `mkdir -p ${join(homedir(), ".local", "share", "whisper-cpp")}\n` +
         `curl -L -o "${modelPath}" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL_NAME}.bin\n` +
-        `Note: small is ~465MB, download may take a while`
+        `Note: small.en is ~230MB (half the multilingual model)`
     }
   }
 
@@ -106,13 +100,6 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       if (code !== 0) {
         const errLine = stderr.trim().split("\n").pop()
         resolve({ error: errLine || `${bin} exited (code ${code})` })
-        return
-      }
-
-      // Skip non-English utterances (Slovak, etc.) so Discord chat doesn't leak gibberish
-      const lang = detectLanguage(stderr)
-      if (lang && lang !== "en") {
-        resolve({ text: "" })
         return
       }
 
