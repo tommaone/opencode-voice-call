@@ -5,6 +5,7 @@ import { homedir } from "os"
 
 const MODEL_NAME = "medium.en"
 const LANG = "en"
+const WHISPER_THREADS = process.env.OPENCODE_WHISPER_THREADS || "4"
 
 export interface TranscribeResult {
   text?: string
@@ -73,6 +74,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       "-m", modelPath,
       "-f", wavFile,
       "-l", LANG,
+      "-t", WHISPER_THREADS,
       "-np",
       "-nt",
     ], {
