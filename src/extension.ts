@@ -170,6 +170,15 @@ async function getSessionId(): Promise<string | null> {
   }
 }
 
+async function createSession(): Promise<string | null> {
+  try {
+    const result = await client!.session.create({})
+    return result.data?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 async function toggleCall() {
   if (callActive) {
     stopCall()
@@ -188,11 +197,7 @@ async function startCall() {
   }
   client = createOpencodeClient({ baseUrl: `http://localhost:${port}` })
 
-  sessionId = await getSessionId()
-  if (!sessionId) {
-    vscode.window.showWarningMessage("No active opencode session")
-    return
-  }
+  sessionId = await getSessionId() ?? await createSession()
 
   callActive = true
   startPromptWatcher()

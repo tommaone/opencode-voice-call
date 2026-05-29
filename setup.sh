@@ -43,11 +43,22 @@ echo "==> Checking whisper-cli"
 if ! command -v whisper-cli &>/dev/null; then
   echo "Building whisper.cpp from source..."
   git clone --depth 1 https://github.com/ggerganov/whisper.cpp /tmp/whisper-cpp
-  make -C /tmp/whisper-cpp -j "$(nproc)" whisper-cli
-  sudo cp /tmp/whisper-cpp/whisper-cli /usr/local/bin/
+  cmake -S /tmp/whisper-cpp -B /tmp/whisper-cpp/build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
+    -DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
+  cmake --build /tmp/whisper-cpp/build -j "$(nproc)"
+  cmake --install /tmp/whisper-cpp/build
   rm -rf /tmp/whisper-cpp
-  echo "  whisper-cli installed to /usr/local/bin/"
+  echo "  whisper-cli installed to ${HOME}/.local/bin/"
+  echo "  Libraries installed to ${HOME}/.local/lib/"
 fi
+
+# Ensure ~/.local/bin is in PATH for this session
+case ":$PATH:" in
+  *:"$HOME/.local/bin":*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
 
 echo "==> Downloading ${MODEL} model (~465MB, multilingual)"
 mkdir -p "$MODEL_DIR"

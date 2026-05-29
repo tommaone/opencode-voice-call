@@ -28,8 +28,13 @@ sudo pacman -S sox curl        # Arch
 
 # whisper.cpp
 git clone https://github.com/ggerganov/whisper.cpp
-cd whisper.cpp && make -j whisper-cli
-sudo cp whisper-cli /usr/local/bin/
+cmake -S whisper.cpp -B whisper.cpp/build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
+  -DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
+cmake --build whisper.cpp/build -j "$(nproc)"
+cmake --install whisper.cpp/build
+rm -rf whisper.cpp
 
 # Model
 mkdir -p ~/.local/share/whisper-cpp
@@ -39,6 +44,8 @@ curl -L -o ~/.local/share/whisper-cpp/ggml-small.bin \
 # Node deps
 npm install
 ```
+
+> The `cmake --install` step places the binary in `~/.local/bin/` and shared libraries in `~/.local/lib/`. The `-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'` flag ensures the binary finds its libraries at runtime — no `LD_LIBRARY_PATH` or sudo needed. Make sure `~/.local/bin` is in your `PATH` (most distros include it by default).
 
 ### Build
 

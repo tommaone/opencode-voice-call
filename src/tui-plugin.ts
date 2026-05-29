@@ -69,8 +69,19 @@ function permissionMode(text: string): "once" | "always" | "reject" | null {
   return null
 }
 
+async function ensureSession(client: any): Promise<string | null> {
+  let id = await getSessionId(client)
+  if (!id) {
+    try {
+      const result = await client.session.create({})
+      id = result.data?.id ?? null
+    } catch {}
+  }
+  return id
+}
+
 async function submitViaSdk(client: any, text: string): Promise<void> {
-  const sessionId = await getSessionId(client)
+  const sessionId = await ensureSession(client)
   if (!sessionId) {
     toastFn("No active opencode session found", "error")
     return
@@ -144,7 +155,7 @@ export default {
           }
 
           callActive = true
-          getSessionId(clientApi).then(id => {
+          ensureSession(clientApi).then(id => {
             if (id) startPromptWatcher(clientApi, id)
             else toast("No active session", "warning")
           })
