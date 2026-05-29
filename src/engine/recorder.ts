@@ -8,7 +8,7 @@ let currentFile: string | null = null
 let stderrBuf = ""
 
 // Headset-friendly defaults — close mic, no boost needed
-const SILENCE_DURATION = parseFloat(process.env.OPENCODE_VAD_SILENCE || "1.5")
+const SILENCE_DURATION = parseFloat(process.env.OPENCODE_VAD_SILENCE || "0.8")
 const MAX_DURATION = 300
 const SILENCE_THRESHOLD = `${parseFloat(process.env.OPENCODE_VAD_THRESHOLD || "3").toFixed(1)}%`
 const AUDIO_DEVICE = process.env.OPENCODE_AUDIO_DEVICE || ""
