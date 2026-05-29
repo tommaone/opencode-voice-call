@@ -7,9 +7,9 @@ let soxProc: ChildProcess | null = null
 let currentFile: string | null = null
 let stderrBuf = ""
 
-const SILENCE_DURATION = 3.0
+const SILENCE_DURATION = 2.0
 const MAX_DURATION = 300
-const SILENCE_THRESHOLD = "8%"
+const SILENCE_THRESHOLD = "4%"
 
 function getTempFile(): string {
   return join(tmpdir(), `opencode-voice-${Date.now()}.wav`)
@@ -27,7 +27,7 @@ function buildSoxArgs(file: string, silenceSec: number): string[] {
     "-c", "1",
     "-b", "16",
     file,
-    "gain", "12",
+    "gain", "18",
     "silence",
     "1", "0.1", SILENCE_THRESHOLD,
     "1", `${silenceSec.toFixed(1)}`, SILENCE_THRESHOLD,
