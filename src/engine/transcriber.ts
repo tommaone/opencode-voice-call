@@ -3,7 +3,7 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
 
-const MODEL_NAME = "small.en"
+const MODEL_NAME = "medium.en"
 const LANG = "en"
 
 export interface TranscribeResult {
@@ -60,7 +60,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       error: `Whisper model not found at ${modelPath}. Download it:\n` +
         `mkdir -p ${join(homedir(), ".local", "share", "whisper-cpp")}\n` +
         `curl -L -o "${modelPath}" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL_NAME}.bin\n` +
-        `Note: small.en is ~230MB (half the multilingual model)`
+        `Note: medium.en is ~1.5GB — ensures accurate English transcription`
     }
   }
 
