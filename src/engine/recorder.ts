@@ -1,5 +1,5 @@
 import { spawn, execSync, type ChildProcess } from "child_process"
-import { unlinkSync, readdirSync } from "fs"
+import { unlinkSync, renameSync, readdirSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 
@@ -7,11 +7,8 @@ let soxProc: ChildProcess | null = null
 let currentFile: string | null = null
 let stderrBuf = ""
 
-// Config from env vars — tune for your mic without code changes
-const MAX_DURATION = 300
+const CHUNK_SECONDS = parseFloat(process.env.OPENCODE_CHUNK_SECONDS || "4")
 const MIC_GAIN = parseFloat(process.env.OPENCODE_MIC_GAIN || "6")
-const VAD_THRESHOLD = `${parseFloat(process.env.OPENCODE_VAD_THRESHOLD || "2").toFixed(1)}%`
-const VAD_SILENCE = parseFloat(process.env.OPENCODE_VAD_SILENCE || "1.0")
 const AUDIO_DEVICE = process.env.OPENCODE_AUDIO_DEVICE || ""
 
 function getTempFile(): string {
@@ -19,24 +16,13 @@ function getTempFile(): string {
 }
 
 /**
- * Build sox args for recording with VAD.
- * Gain is applied first to boost quiet desk mics, then silence detection
- * trims based on the amplified signal.
- *
- * Tunable via env vars without code changes:
- *   OPENCODE_AUDIO_DEVICE  — PulseAudio source name (e.g. "alsa_input.usb-Mic-01")
- *                            or ALSA device (e.g. "plughw:1,0"). Empty = default.
- *   OPENCODE_MIC_GAIN      — Input gain in dB (default: 18)
- *   OPENCODE_VAD_THRESHOLD — Silence threshold % (default: 4)
- *   OPENCODE_VAD_SILENCE   — Silence duration in seconds (default: 2.0)
+ * Build sox args for recording a fixed-duration raw chunk.
+ * No amplitude VAD — whisper's model-based VAD handles speech detection.
  */
-function buildSoxArgs(file: string, silenceSec: number): string[] {
+function buildSoxArgs(file: string): string[] {
   const args: string[] = ["-q"]
 
-  // Select audio device if configured
   if (AUDIO_DEVICE) {
-    // If it contains ":", assume it's already a full sox device spec (e.g. "plughw:1,0")
-    // Otherwise treat it as a PulseAudio source name
     if (AUDIO_DEVICE.includes(":")) {
       args.push("-t", "alsa", AUDIO_DEVICE)
     } else {
@@ -48,41 +34,48 @@ function buildSoxArgs(file: string, silenceSec: number): string[] {
     "-r", "16000",
     "-c", "1",
     "-b", "16",
+    "-e", "signed-integer",
     file,
     "highpass", "80",
     "lowpass", "7500",
-    "compand", "0.1,0.3", "-50,-60,-30,-35,-15,-15,0,0", "-5", "-90", "0.1",
     "gain", `${MIC_GAIN.toFixed(0)}`,
-    "silence",
-    "1", "0.1", VAD_THRESHOLD,
-    "1", `${silenceSec.toFixed(1)}`, VAD_THRESHOLD,
   )
 
   return args
+}
+
+/**
+ * Amplify a WAV file in-place to boost whisper accuracy.
+ * Uses sox gain effect. Original file is replaced.
+ */
+export function amplifyFile(file: string, gainDb: number = 24): void {
+  const tmp = file + ".amp"
+  try {
+    execSync(`sox "${file}" "${tmp}" gain ${gainDb.toFixed(0)}`, { timeout: 10000 })
+    unlinkSync(file)
+    renameSync(tmp, file)
+  } catch {
+    try { unlinkSync(tmp) } catch {}
+  }
 }
 
 export function isRecording(): boolean {
   return soxProc !== null
 }
 
-export function startRecording(
-  opts?: { silenceDuration?: number; maxDuration?: number }
-): Promise<string> {
+export function startRecording(): Promise<string> {
   return new Promise((resolve, reject) => {
     if (soxProc) {
       reject(new Error("Already recording"))
       return
     }
 
-    const silence = opts?.silenceDuration ?? VAD_SILENCE
-    const maxSec = opts?.maxDuration ?? MAX_DURATION
     const file = getTempFile()
     currentFile = file
     stderrBuf = ""
 
-    const args = buildSoxArgs(file, silence)
-    const timeoutArgs = [maxSec.toString(), "rec", ...args]
-
+    const args = buildSoxArgs(file)
+    const timeoutArgs = [CHUNK_SECONDS.toFixed(0), "rec", ...args]
     const recorder = spawn("timeout", timeoutArgs)
 
     soxProc = recorder
@@ -107,6 +100,8 @@ export function startRecording(
     recorder.on("close", (code) => {
       soxProc = null
       if (code === 0 || code === 124) {
+        // Amplify quiet recordings for whisper
+        amplifyFile(file, 24)
         resolve(file)
       } else {
         const err = stderrBuf.trim().split("\n").pop() || `sox exited with code ${code}`
@@ -133,7 +128,6 @@ export function forceKill(): void {
     soxProc = null
   }
   try {
-    // Kill orphaned processes from previous sessions (rec is sox, timeout wraps it)
     execSync("pkill -9 -f 'opencode-voice' 2>/dev/null", { stdio: "ignore" })
   } catch {}
 }
@@ -146,7 +140,6 @@ export function cleanup(): void {
 }
 
 export function cleanAllTempFiles(): void {
-  // Remove leftover temp WAVs from previous sessions that didn't clean up
   try {
     const tmpDir = tmpdir()
     const files = readdirSync(tmpDir)
@@ -155,5 +148,5 @@ export function cleanAllTempFiles(): void {
         try { unlinkSync(join(tmpDir, f)) } catch {}
       }
     }
-  } catch {} // tmpdir might not be readable? improbable but safe
+  } catch {}
 }

@@ -16,7 +16,7 @@ export class CallLoop {
   private callbacks: CallCallbacks
   private cooldownMs: number
 
-  constructor(callbacks: CallCallbacks, cooldownMs: number = 800) {
+  constructor(callbacks: CallCallbacks, cooldownMs: number = 0) {
     this.callbacks = callbacks
     this.cooldownMs = cooldownMs
   }

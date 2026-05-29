@@ -75,6 +75,7 @@ export async function transcribe(wavFile: string): Promise<TranscribeResult> {
       "-f", wavFile,
       "-l", LANG,
       "-t", WHISPER_THREADS,
+      "--vad-thold", "0.5",
       "-np",
       "-nt",
     ], {
