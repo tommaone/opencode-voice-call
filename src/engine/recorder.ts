@@ -49,6 +49,8 @@ function buildSoxArgs(file: string, silenceSec: number): string[] {
     "-c", "1",
     "-b", "16",
     file,
+    "highpass", "80",
+    "lowpass", "7500",
     "gain", `${MIC_GAIN.toFixed(0)}`,
     "silence",
     "1", "0.1", VAD_THRESHOLD,
@@ -71,7 +73,7 @@ export function startRecording(
       return
     }
 
-    const silence = opts?.silenceDuration ?? SILENCE_DURATION
+    const silence = opts?.silenceDuration ?? VAD_SILENCE
     const maxSec = opts?.maxDuration ?? MAX_DURATION
     const file = getTempFile()
     currentFile = file
