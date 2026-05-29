@@ -51,7 +51,7 @@ function buildSoxArgs(file: string, silenceSec: number): string[] {
     file,
     "highpass", "80",
     "lowpass", "7500",
-    "compand", "0.1,0.3", "-60,-60,-40,-20,-20,-20", "-5", "-90", "0.1",
+    "compand", "0.1,0.3", "-50,-60,-30,-35,-15,-15,0,0", "-5", "-90", "0.1",
     "gain", `${MIC_GAIN.toFixed(0)}`,
     "silence",
     "1", "0.1", VAD_THRESHOLD,
