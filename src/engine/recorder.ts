@@ -9,8 +9,8 @@ let stderrBuf = ""
 
 // Config from env vars — tune for your mic without code changes
 const MAX_DURATION = 300
-const MIC_GAIN = parseFloat(process.env.OPENCODE_MIC_GAIN || "18")
-const VAD_THRESHOLD = `${parseFloat(process.env.OPENCODE_VAD_THRESHOLD || "4").toFixed(1)}%`
+const MIC_GAIN = parseFloat(process.env.OPENCODE_MIC_GAIN || "6")
+const VAD_THRESHOLD = `${parseFloat(process.env.OPENCODE_VAD_THRESHOLD || "2").toFixed(1)}%`
 const VAD_SILENCE = parseFloat(process.env.OPENCODE_VAD_SILENCE || "1.0")
 const AUDIO_DEVICE = process.env.OPENCODE_AUDIO_DEVICE || ""
 

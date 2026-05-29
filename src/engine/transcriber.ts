@@ -3,7 +3,7 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
 
-const MODEL_NAME = "medium.en"
+const MODEL_NAME = "small.en"
 const LANG = "en"
 const WHISPER_THREADS = process.env.OPENCODE_WHISPER_THREADS || "4"
 
