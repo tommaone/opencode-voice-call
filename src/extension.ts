@@ -8,7 +8,6 @@ let statusBarItem: vscode.StatusBarItem
 let callLoop: CallLoop | null = null
 let callActive = false
 let client: OpencodeClient | null = null
-let sessionId: string | null = null
 let pendingPrompt: any = null
 let pollAbort: AbortController | null = null
 
@@ -132,6 +131,22 @@ function stopPromptWatcher() {
   pendingPrompt = null
 }
 
+/**
+ * Get the most recently updated session ID.
+ * Looks up fresh on every call — follows session switches automatically.
+ */
+async function getActiveSessionId(): Promise<string | null> {
+  try {
+    const result = await client!.session.list()
+    const sessions = result.data?.sort(
+      (a: any, b: any) => (b.time?.updated || 0) - (a.time?.updated || 0)
+    )
+    return sessions?.[0]?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 function discoverOpencodePort(): number | null {
   try {
     const pids = execSync("pgrep -f 'opencode.*--port' | head -5", {
@@ -155,32 +170,6 @@ function discoverOpencodePort(): number | null {
   return null
 }
 
-async function getSessionId(): Promise<string | null> {
-  try {
-    const result = await client!.session.list()
-    const sessions = result.data?.sort(
-      (a: any, b: any) => (b.time?.updated || 0) - (a.time?.updated || 0)
-    )
-    return sessions?.[0]?.id || null
-  } catch {
-    return null
-  }
-}
-
-async function createTuiSession(): Promise<string | null> {
-  try {
-    await client!.tui.executeCommand({ body: { command: "session.new" } })
-    await new Promise(r => setTimeout(r, 500))
-    const result = await client!.session.list()
-    const sessions = result.data?.sort(
-      (a: any, b: any) => (b.time?.created || 0) - (a.time?.created || 0)
-    )
-    return sessions?.[0]?.id ?? null
-  } catch {
-    return null
-  }
-}
-
 async function toggleCall() {
   if (callActive) {
     stopCall()
@@ -199,7 +188,12 @@ async function startCall() {
   }
   client = createOpencodeClient({ baseUrl: `http://localhost:${port}` })
 
-  sessionId = await getSessionId() ?? await createTuiSession()
+  // Verify at least one session exists before starting
+  const sid = await getActiveSessionId()
+  if (!sid) {
+    vscode.window.showWarningMessage("Open an opencode session first")
+    return
+  }
 
   callActive = true
   startPromptWatcher()
@@ -224,7 +218,10 @@ async function startCall() {
               body: { response: "reject" },
             })
           }
-          await client!.session.abort({ path: { id: sessionId! } })
+          const sid = await getActiveSessionId()
+          if (sid) {
+            await client!.session.abort({ path: { id: sid } })
+          }
         } catch (err: any) {
           vscode.window.showWarningMessage(`Stop failed: ${err.message}`)
         }
@@ -253,11 +250,17 @@ async function startCall() {
         return
       }
       try {
+        // Look up the most recently updated session — follows switches
+        const sid = await getActiveSessionId()
+        if (!sid) {
+          vscode.window.showWarningMessage("No opencode session open")
+          return
+        }
         // Interrupt any current AI response
-        await client!.session.abort({ path: { id: sessionId! } }).catch(() => {})
+        await client!.session.abort({ path: { id: sid } }).catch(() => {})
         // Fire-and-forget — returns immediately, loop keeps recording
         await client!.session.promptAsync({
-          path: { id: sessionId! },
+          path: { id: sid },
           body: { parts: [{ type: "text", text }] },
         })
       } catch (err: any) {

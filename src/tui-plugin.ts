@@ -7,7 +7,6 @@ let clientApi: any = null
 let pendingPrompt: any = null
 let pollAbort: AbortController | null = null
 let callActive = false
-let activeSessionId: string | null = null
 
 async function startPromptWatcher(client: any) {
   while (callActive) {
@@ -51,14 +50,15 @@ function permissionMode(text: string): "once" | "always" | "reject" | null {
 }
 
 /**
- * Get the ID of the newest session from the list.
+ * Get the most recently updated session ID.
+ * Looks up fresh on every call — follows session switches automatically.
  */
-async function getNewestSessionId(client: any): Promise<string | null> {
+async function getActiveSessionId(client: any): Promise<string | null> {
   try {
     const sessions = await client.session.list()
     if (!sessions || sessions.length === 0) return null
     const sorted = [...sessions].sort(
-      (a: any, b: any) => (b.time?.created || 0) - (a.time?.created || 0)
+      (a: any, b: any) => (b.time?.updated || 0) - (a.time?.updated || 0)
     )
     return sorted[0].id
   } catch {
@@ -90,14 +90,16 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     }
 
     // --- Normal voice submission ---
-    if (!activeSessionId) {
-      toastFn("No active session — use /call first", "warning")
+    // Look up the most recently updated session — follows TUI switches
+    const sid = await getActiveSessionId(client)
+    if (!sid) {
+      toastFn("No session open — use /sessions", "warning")
       return
     }
 
     // Interrupt any current AI response so the new message goes through immediately
     try {
-      await client.session.abort({ path: { id: activeSessionId } })
+      await client.session.abort({ path: { id: sid } })
     } catch {
       // Session may not be busy — fine, proceed
     }
@@ -105,7 +107,7 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
     // Submit fire-and-forget — returns immediately, no "Sending..." block.
     // The abort above already interrupted the AI.
     await client.session.promptAsync({
-      path: { id: activeSessionId },
+      path: { id: sid },
       body: { parts: [{ type: "text", text }] },
     })
   } catch (err: any) {
@@ -152,25 +154,12 @@ export default {
             return
           }
 
-          // Create a new session via the TUI — this makes it visible and
-          // navigates the TUI to it. No guessing which session is "active."
-          try {
-            await clientApi.tui.executeCommand({ body: { command: "session.new" } })
-          } catch {
-            toast("Failed to create session", "error")
-            return
-          }
-
-          // Give the TUI a moment to create and navigate to the session
-          await new Promise(r => setTimeout(r, 500))
-
-          // Get the newly created session's ID
-          const sid = await getNewestSessionId(clientApi)
+          // Verify at least one session exists before starting
+          const sid = await getActiveSessionId(clientApi)
           if (!sid) {
-            toast("Failed to get session ID", "error")
+            toast("Open a session first (/sessions)", "warning")
             return
           }
-          activeSessionId = sid
 
           callActive = true
           startPromptWatcher(clientApi)
@@ -208,7 +197,6 @@ export default {
           stopPromptWatcher()
           callLoop.stop()
           callLoop = null
-          activeSessionId = null
           toast("Call ended", "info")
         },
       },

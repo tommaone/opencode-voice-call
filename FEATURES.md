@@ -59,22 +59,24 @@ the current AI response. The AI stops what it's saying and responds to the new m
 for the AI to finish before speaking, which defeats the purpose of voice input.
 `promptAsync` is required over `prompt` to avoid blocking the recording loop.
 
-## 6. Session visible in TUI
+## 6. Session follows TUI focus
 
-The session receiving voice submissions appears in the TUI's session list. The user
-can see the conversation history and doesn't lose track of which session is active.
+The session receiving voice submissions is looked up fresh on every utterance.
+The most recently updated session is used. This means switching sessions in the
+TUI automatically switches where voice submissions go — no restart needed.
 
-**Mechanism:** At `/call` time, `client.session.list()` gets the most recent session.
-If none exists, `tui.executeCommand({ command: "session.new" })` creates one through
-the TUI so it's visible. Falls back to TUI submit (clearPrompt + appendPrompt + submitPrompt)
-as the last resort.
+**Mechanism:** `getActiveSessionId()` sorts sessions by `time.updated` and
+picks the newest one. Called before every `submitText`.
 
-## 7. Works without pre-selected session
+**Files:** `src/tui-plugin.ts` → `getActiveSessionId()`, `src/extension.ts` → `getActiveSessionId()`
 
-The user can open opencode for the first time, type `/call`, and start speaking.
-No need to type a message first, no need to manually create or select a session.
+## 7. Requires existing session
 
-**Files:** `src/tui-plugin.ts` → `ensureVisibleSession()`
+The user must have at least one session open before starting a voice call.
+If no session exists, the plugin shows a warning ("Open a session first").
+No auto-creation — messages would be invisible if the TUI doesn't navigate.
+
+**Files:** `/call` handler in `src/tui-plugin.ts`, `startCall()` in `src/extension.ts`
 
 ## 8. Permission prompt handling
 
