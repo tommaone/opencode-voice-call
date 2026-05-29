@@ -9,7 +9,7 @@ let stderrBuf = ""
 
 const SILENCE_DURATION = 1.5
 const MAX_DURATION = 300
-const SILENCE_THRESHOLD = "3%"
+const SILENCE_THRESHOLD = "2.7%"
 
 function getTempFile(): string {
   return join(tmpdir(), `opencode-voice-${Date.now()}.wav`)

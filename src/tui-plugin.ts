@@ -7,21 +7,15 @@ let clientApi: any = null
 let pendingPrompt: any = null
 let pollAbort: AbortController | null = null
 let callActive = false
+let activeSessionId: string | null = null
 
-async function startPromptWatcher(client: any, sessionId: string) {
+async function startPromptWatcher(client: any) {
   while (callActive) {
     try {
       pollAbort = new AbortController()
-      const [controlResult, permsResult] = await Promise.all([
-        client.tui.control.next({}, { signal: pollAbort.signal }).catch(() => null),
-        client.permission.list({}, { signal: pollAbort.signal }).catch(() => null),
-      ])
+      const controlResult = await client.tui.control.next({ signal: pollAbort.signal }).catch(() => null)
       if (!callActive) break
-      const perm = permsResult?.data?.find((p: any) => p.sessionID === sessionId)
-      if (perm) {
-        pendingPrompt = { type: "permission", permissionId: perm.id, sessionID: perm.sessionID }
-        toastFn("Permission request waiting — say approve, deny, or approve all", "info")
-      } else if (controlResult?.data) {
+      if (controlResult?.data) {
         pendingPrompt = { type: "prompt", ...controlResult.data }
         toastFn("Interactive prompt waiting — speak your response", "info")
       }
@@ -40,19 +34,6 @@ function stopPromptWatcher() {
   pendingPrompt = null
 }
 
-async function getSessionId(client: any): Promise<string | null> {
-  try {
-    const result = await client.session.list()
-    if (!result.data?.length) return null
-    const sessions = result.data.sort(
-      (a: any, b: any) => (b.time?.updated || 0) - (a.time?.updated || 0)
-    )
-    return sessions[0]?.id || null
-  } catch {
-    return null
-  }
-}
-
 function normalizeResponse(text: string): string {
   const t = text.trim()
   if (/\bapprov/i.test(t)) return "allow"
@@ -69,24 +50,25 @@ function permissionMode(text: string): "once" | "always" | "reject" | null {
   return null
 }
 
-async function ensureSession(client: any): Promise<string | null> {
-  let id = await getSessionId(client)
-  if (!id) {
-    try {
-      const result = await client.session.create({})
-      id = result.data?.id ?? null
-    } catch {}
+/**
+ * Get the ID of the newest session from the list.
+ */
+async function getNewestSessionId(client: any): Promise<string | null> {
+  try {
+    const sessions = await client.session.list()
+    if (!sessions || sessions.length === 0) return null
+    const sorted = [...sessions].sort(
+      (a: any, b: any) => (b.time?.created || 0) - (a.time?.created || 0)
+    )
+    return sorted[0].id
+  } catch {
+    return null
   }
-  return id
 }
 
 async function submitViaSdk(client: any, text: string): Promise<void> {
-  const sessionId = await ensureSession(client)
-  if (!sessionId) {
-    toastFn("No active opencode session found", "error")
-    return
-  }
   try {
+    // Handle pending permission/interactive prompts first
     const prompt = pendingPrompt
     if (prompt) {
       pendingPrompt = null
@@ -94,9 +76,9 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
       if (prompt.type === "permission") {
         const mode = permissionMode(text)
         if (mode) {
-          await client.permission.reply({
-            requestID: prompt.permissionId,
-            reply: mode,
+          await client.postSessionIdPermissionsPermissionId({
+            path: { id: prompt.sessionID, permissionID: prompt.permissionId },
+            body: { response: mode },
           })
           toastFn(mode === "always" ? "Auto-approve set" : mode === "once" ? "Approved" : "Rejected", "success")
         }
@@ -106,9 +88,25 @@ async function submitViaSdk(client: any, text: string): Promise<void> {
       }
       return
     }
-    await client.session.prompt({
-      sessionID: sessionId,
-      parts: [{ type: "text", text }],
+
+    // --- Normal voice submission ---
+    if (!activeSessionId) {
+      toastFn("No active session — use /call first", "warning")
+      return
+    }
+
+    // Interrupt any current AI response so the new message goes through immediately
+    try {
+      await client.session.abort({ path: { id: activeSessionId } })
+    } catch {
+      // Session may not be busy — fine, proceed
+    }
+
+    // Submit fire-and-forget — returns immediately, no "Sending..." block.
+    // The abort above already interrupted the AI.
+    await client.session.promptAsync({
+      path: { id: activeSessionId },
+      body: { parts: [{ type: "text", text }] },
     })
   } catch (err: any) {
     toastFn(`Submit failed: ${err.message}`, "error")
@@ -154,11 +152,28 @@ export default {
             return
           }
 
+          // Create a new session via the TUI — this makes it visible and
+          // navigates the TUI to it. No guessing which session is "active."
+          try {
+            await clientApi.tui.executeCommand({ body: { command: "session.new" } })
+          } catch {
+            toast("Failed to create session", "error")
+            return
+          }
+
+          // Give the TUI a moment to create and navigate to the session
+          await new Promise(r => setTimeout(r, 500))
+
+          // Get the newly created session's ID
+          const sid = await getNewestSessionId(clientApi)
+          if (!sid) {
+            toast("Failed to get session ID", "error")
+            return
+          }
+          activeSessionId = sid
+
           callActive = true
-          ensureSession(clientApi).then(id => {
-            if (id) startPromptWatcher(clientApi, id)
-            else toast("No active session", "warning")
-          })
+          startPromptWatcher(clientApi)
 
           callLoop = new CallLoop({
             onStateChange: updateStatus,
@@ -193,6 +208,7 @@ export default {
           stopPromptWatcher()
           callLoop.stop()
           callLoop = null
+          activeSessionId = null
           toast("Call ended", "info")
         },
       },

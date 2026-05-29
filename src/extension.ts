@@ -53,17 +53,14 @@ function updateButton(state: CallState) {
       statusBarItem.tooltip = "Start voice call"
       break
     case "recording":
+    case "submitting":
       statusBarItem.text = "$(mic) Listening..."
       statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground")
-      statusBarItem.tooltip = "Listening — click to stop"
+      statusBarItem.tooltip = "Listening — speak anytime"
       break
     case "transcribing":
-      statusBarItem.text = "$(sync~spin) Transcribing..."
+      statusBarItem.text = "$(sync~spin) Listening..."
       statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground")
-      break
-    case "submitting":
-      statusBarItem.text = "$(send) Sending..."
-      statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground")
       break
   }
 }
@@ -170,10 +167,15 @@ async function getSessionId(): Promise<string | null> {
   }
 }
 
-async function createSession(): Promise<string | null> {
+async function createTuiSession(): Promise<string | null> {
   try {
-    const result = await client!.session.create({})
-    return result.data?.id ?? null
+    await client!.tui.executeCommand({ body: { command: "session.new" } })
+    await new Promise(r => setTimeout(r, 500))
+    const result = await client!.session.list()
+    const sessions = result.data?.sort(
+      (a: any, b: any) => (b.time?.created || 0) - (a.time?.created || 0)
+    )
+    return sessions?.[0]?.id ?? null
   } catch {
     return null
   }
@@ -197,7 +199,7 @@ async function startCall() {
   }
   client = createOpencodeClient({ baseUrl: `http://localhost:${port}` })
 
-  sessionId = await getSessionId() ?? await createSession()
+  sessionId = await getSessionId() ?? await createTuiSession()
 
   callActive = true
   startPromptWatcher()
@@ -215,13 +217,17 @@ async function startCall() {
         pendingPrompt = null
         clearPromptPreview()
         const { sessionId: permSid, permissionId } = prompt ? parsePermissionPath(prompt.path) : {}
-        if (permSid && permissionId) {
-          ;(client!.session as any).postSessionIdPermissionsPermissionId({
-            path: { id: permSid, permissionID: permissionId },
-            body: { response: "reject" },
-          }).catch(() => {})
+        try {
+          if (permSid && permissionId) {
+            await (client!.session as any).postSessionIdPermissionsPermissionId({
+              path: { id: permSid, permissionID: permissionId },
+              body: { response: "reject" },
+            })
+          }
+          await client!.session.abort({ path: { id: sessionId! } })
+        } catch (err: any) {
+          vscode.window.showWarningMessage(`Stop failed: ${err.message}`)
         }
-        client!.session.abort({ path: { id: sessionId! } }).catch(() => {})
         return
       }
       if (prompt) {
@@ -229,23 +235,34 @@ async function startCall() {
         clearPromptPreview()
         const answer = normalizeResponse(text)
         const { sessionId: permSid, permissionId } = parsePermissionPath(prompt.path)
-        if (permSid && permissionId) {
-          const mode = permissionMode(text)
-          if (mode) {
-            ;(client!.session as any).postSessionIdPermissionsPermissionId({
-              path: { id: permSid, permissionID: permissionId },
-              body: { response: mode },
-            }).catch(() => {})
+        try {
+          if (permSid && permissionId) {
+            const mode = permissionMode(text)
+            if (mode) {
+              await (client!.session as any).postSessionIdPermissionsPermissionId({
+                path: { id: permSid, permissionID: permissionId },
+                body: { response: mode },
+              })
+            }
+          } else {
+            await client!.tui.control.response({ body: answer })
           }
-        } else {
-          client!.tui.control.response({ body: answer }).catch(() => {})
+        } catch (err: any) {
+          vscode.window.showWarningMessage(`Response failed: ${err.message}`)
         }
         return
       }
-      client!.session.prompt({
-        path: { id: sessionId! },
-        body: { parts: [{ type: "text", text }] },
-      }).catch(() => {})
+      try {
+        // Interrupt any current AI response
+        await client!.session.abort({ path: { id: sessionId! } }).catch(() => {})
+        // Fire-and-forget — returns immediately, loop keeps recording
+        await client!.session.promptAsync({
+          path: { id: sessionId! },
+          body: { parts: [{ type: "text", text }] },
+        })
+      } catch (err: any) {
+        vscode.window.showWarningMessage(`Submit failed: ${err.message}`)
+      }
     },
   })
 

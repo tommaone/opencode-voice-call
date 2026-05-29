@@ -84,6 +84,18 @@ When the voice call is active and you need to ask the user a question:
 4. Read the answer from the next `session.prompt()` message in the conversation history
 5. Do NOT expect `tui.control.next/response` to work for `question` tool prompts — they use a different internal channel
 
+## ⚠️ Feature stability contract
+
+**Read `FEATURES.md` before every change.** It lists every feature this project
+provides. If your change breaks a listed feature, the change does not ship.
+
+Rules:
+1. Read `FEATURES.md` before any code change
+2. After every change, verify all features still work
+3. New features are added to `FEATURES.md` at implementation time
+4. Feature removal requires explicit deprecation, not accidental deletion
+5. "I didn't know that was a feature" is not an excuse — it's in the file
+
 ## GitHub workflow
 
 - Branch from main for each feature
