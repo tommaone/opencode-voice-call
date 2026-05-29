@@ -5,6 +5,9 @@
 ### Fixed
 - Stale `SILENCE_DURATION` reference after rename to `VAD_SILENCE` — caused ReferenceError on every call start (recorder.ts line 76)
 
+### Fixed
+- False/hallucinated transcriptions from noise floor triggering VAD — added `compand` noise gate to suppress sub-speech levels before gain
+
 ### Changed
 - Swapped whisper model `small.en` → `medium.en` (Q5_0, 515MB) for better accuracy at natural speech speed
 - VAD threshold: `8%` → `4%` (desk mic at distance can't hit high threshold)
