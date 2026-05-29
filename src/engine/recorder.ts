@@ -7,9 +7,9 @@ let soxProc: ChildProcess | null = null
 let currentFile: string | null = null
 let stderrBuf = ""
 
-const SILENCE_DURATION = 1.5
+const SILENCE_DURATION = 3.0
 const MAX_DURATION = 300
-const SILENCE_THRESHOLD = "2.7%"
+const SILENCE_THRESHOLD = "8%"
 
 function getTempFile(): string {
   return join(tmpdir(), `opencode-voice-${Date.now()}.wav`)
