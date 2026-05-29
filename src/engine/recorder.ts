@@ -15,6 +15,11 @@ function getTempFile(): string {
   return join(tmpdir(), `opencode-voice-${Date.now()}.wav`)
 }
 
+/**
+ * Build sox args for recording with VAD.
+ * Gain is applied first to boost quiet desk mics, then silence detection
+ * trims based on the amplified signal.
+ */
 function buildSoxArgs(file: string, silenceSec: number): string[] {
   return [
     "-q",
@@ -22,6 +27,7 @@ function buildSoxArgs(file: string, silenceSec: number): string[] {
     "-c", "1",
     "-b", "16",
     file,
+    "gain", "12",
     "silence",
     "1", "0.1", SILENCE_THRESHOLD,
     "1", `${silenceSec.toFixed(1)}`, SILENCE_THRESHOLD,
