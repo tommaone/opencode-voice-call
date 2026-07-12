@@ -13,7 +13,7 @@ Voice call mode for opencode. Continuous voice pickup, local transcription, auto
 │  │  recorder.ts │───▶│ transcriber  │───▶│  call-loop.ts     │  │
 │  │              │    │ .ts          │    │                   │  │
 │  │  sox + VAD   │    │ whisper-cpp  │    │  orchestrates     │  │
-│  │  1.5s silence│    │ base.en      │    │  record→transcribe│  │
+│  │  1.5s silence│    │ small.en     │    │  record→transcribe│  │
 │  │              │    │              │    │  →submit          │  │
 │  └──────────────┘    └──────────────┘    └────────┬──────────┘  │
 │                                                   │             │
@@ -66,7 +66,7 @@ opencode> /hang
 |---|---|---|---|
 | `sox` | Audio capture + VAD | ~1MB | Free, `apt install` |
 | `whisper-cpp` | Local transcription | ~10MB binary | Free, open source |
-| `base.en` model | Whisper model file | 140MB | Free download |
+| `small.en` model | Whisper model file (English-only) | ~466MB | Free download |
 | `@opencode-ai/sdk` | Submit to opencode | small | Free, npm |
 | `esbuild` | Bundle VS Code ext | dev dep | Free, npm |
 | `@types/vscode` | VS Code API types | dev dep | Free, npm |

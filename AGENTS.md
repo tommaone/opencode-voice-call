@@ -9,7 +9,7 @@ opencode-voice-call/
 ├── src/
 │   ├── engine/
 │   │   ├── recorder.ts        # sox recording with VAD (1.5s silence)
-│   │   ├── transcriber.ts     # whisper-cpp wrapper (base.en model)
+│   │   ├── transcriber.ts     # whisper-cpp wrapper (small.en model)
 │   │   └── call-loop.ts       # orchestration loop
 │   ├── extension.ts           # VS Code extension entry (status bar, terminal focus)
 │   └── tui-plugin.ts          # opencode TUI plugin (/call, /hang)
@@ -47,7 +47,7 @@ opencode-voice-call/
 
 ```
 sudo apt install sox
-# Download whisper-cpp + base.en model (140MB)
+# Download whisper-cpp + small.en model (~466MB)
 # npm install
 ```
 

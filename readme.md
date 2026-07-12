@@ -15,18 +15,35 @@ cd opencode-voice-call
 ./setup.sh
 ```
 
-The script installs everything: Node.js, opencode, sox, whisper.cpp (built from source), the small multilingual model (~465MB), the VS Code extension, and the TUI plugin config.
+The script installs everything: Node.js, opencode, sox, whisper.cpp (built from source), the small.en English-only model (~466MB), the VS Code extension, and the TUI plugin config.
 
 ## Manual setup
 
 ### Prerequisites
 
 ```bash
-# System
-sudo apt install sox curl     # Debian/Ubuntu
-sudo pacman -S sox curl        # Arch
+# System (Debian/Ubuntu)
+sudo apt install sox curl cmake build-essential git libsox-fmt-pulse pulseaudio-utils
 
-# whisper.cpp
+# System (Arch)
+sudo pacman -S sox curl cmake base-devel git
+
+# System (Fedora)
+sudo dnf install -y sox curl cmake gcc gcc-c++ make git pulseaudio-utils
+
+# macOS
+brew install sox curl cmake
+```
+
+### WSL note
+
+In WSL2, audio flows through the WSLg PulseAudio bridge (`/mnt/wslg/PulseServer`). Ensure:
+- `PULSE_SERVER` env var is set (usually automatic in WSL2 on Windows 11)
+- `libsox-fmt-pulse` is installed (Debian/Ubuntu)
+- Your Windows host has a working microphone (check Sound settings)
+
+```bash
+# whisper.cpp (build from source)
 git clone https://github.com/ggerganov/whisper.cpp
 cmake -S whisper.cpp -B whisper.cpp/build \
   -DCMAKE_BUILD_TYPE=Release \
@@ -36,10 +53,10 @@ cmake --build whisper.cpp/build -j "$(nproc)"
 cmake --install whisper.cpp/build
 rm -rf whisper.cpp
 
-# Model
+# Model (English-only, ~466MB — matches code in transcriber.ts)
 mkdir -p ~/.local/share/whisper-cpp
-curl -L -o ~/.local/share/whisper-cpp/ggml-small.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+curl -L -o ~/.local/share/whisper-cpp/ggml-small.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
 
 # Node deps
 npm install
@@ -56,8 +73,17 @@ npm run compile
 ### Install VS Code extension
 
 ```bash
-ln -s "$PWD" ~/.vscode/extensions/tommaone.opencode-voice-call
+# Build .vsix package
+npm run package
+
+# Install (WSL — uses .vscode-server path)
+code --install-extension opencode-voice-call-0.1.0.vsix
+
+# Or on native Linux/macOS:
+# code --install-extension opencode-voice-call-0.1.0.vsix
 ```
+
+> **Note:** Symlinks don't work — VS Code removes them on restart. Always use `.vsix`.
 
 ### Install TUI plugin
 
@@ -82,7 +108,7 @@ Add to `~/.config/opencode/tui.jsonc`:
 | Start | Click `$(mic) Call` or `Ctrl+Shift+M` | `/call` |
 | Stop | Click again or `Ctrl+Shift+M` | `/hang` |
 
-Speak after starting — silence detection (1.5s) triggers transcription automatically.
+Speak after starting — silence detection (0.8s) triggers transcription automatically.
 
 ## How it works
 
@@ -91,7 +117,7 @@ Microphone → sox (VAD) → WAV → whisper.cpp → text → opencode SDK → s
 ```
 
 - **recorder.ts** — sox with silence detection (1.5s threshold)
-- **transcriber.ts** — whisper.cpp with small multilingual model (auto-detects language, skips non-English)
+- **transcriber.ts** — whisper.cpp with small.en English-only model (auto-detects language, skips non-English)
 - **call-loop.ts** — orchestration loop (record → transcribe → submit)
 - **extension.ts** — VS Code status bar integration
 - **tui-plugin.ts** — opencode TUI slash commands

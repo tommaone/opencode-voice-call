@@ -14,11 +14,11 @@ breaks one, the change does not ship. Add new features, never regress.
 
 ## 1. Voice recording with VAD
 
-sox-based continuous recording with silence detection. Records until 1.5 seconds
-of silence, then returns the audio for transcription.
+sox-based continuous recording with silence detection. Records until 0.8 seconds
+of silence (configurable via `OPENCODE_VAD_SILENCE`), then returns the audio for transcription.
 
 **Files:** `src/engine/recorder.ts`
-**Threshold:** `SILENCE_THRESHOLD = "2.7%"` (configurable, lower = more sensitive)
+**Threshold:** `SILENCE_THRESHOLD = "3.0%"` (configurable via `OPENCODE_VAD_THRESHOLD`, lower = more sensitive)
 **VAD fix:** `trim 0 0.1` prefix prevents whisper-cpp's "blind spot" bug (first ~100ms
 of audio is silent, causing false no-speech detection).
 
