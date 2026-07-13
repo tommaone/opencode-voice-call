@@ -92,7 +92,7 @@ mkdir -p ~/.config/opencode/plugins/voice-call
 cp dist/tui-plugin.js ~/.config/opencode/plugins/voice-call/
 ```
 
-Add to `~/.config/opencode/tui.jsonc`:
+Create `~/.config/opencode/tui.jsonc`:
 
 ```jsonc
 {
@@ -100,6 +100,8 @@ Add to `~/.config/opencode/tui.jsonc`:
   "plugin": ["~/.config/opencode/plugins/voice-call/tui-plugin.js"]
 }
 ```
+
+> **Warning:** Do NOT put the `plugin` key in `opencode.jsonc` — that causes a startup crash. It must go in `tui.jsonc`.
 
 ## Usage
 
